@@ -1,0 +1,19 @@
+Title: {{title}}
+
+---
+### Description
+{{description}}
+
+---
+### Acceptance Criteria
+- [ ] 
+- [ ] 
+- [ ] 
+
+---
+### Technical Details
+*Add technical implementation details here*
+
+---
+### References
+*List any relevant references or links*

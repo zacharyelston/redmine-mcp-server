@@ -45,65 +45,61 @@ By using this MCP server, you can ensure that AI work remains focused, well-docu
    cd redmine-mcp-server
    ```
 
-2. Install dependencies:
+2. Configure credentials:
    ```
-   pip install -r requirements.txt
-   ```
-
-3. Configure the server:
-   ```
-   cp config.yaml.example config.yaml
-   # Edit config.yaml with your Redmine URL and API key
+   cp credentials.yaml.example credentials.yaml
+   # Edit credentials.yaml with your Redmine URL and API key
    ```
 
-## Usage
+3. Choose a deployment method:
 
-### Running the server
+### Method 1: Development Server
 
-Start the server with:
-
-```
-python main.py
+```bash
+./run_dev.sh
 ```
 
-The server runs on port 5000 by default.
+### Method 2: Docker Deployment
 
-### Docker deployment
+```bash
+# Build and run using the script
+chmod +x build_and_run.sh
+./build_and_run.sh
 
-Build and run the Docker container:
-
+# Or using Docker Compose
+docker-compose up -d
 ```
-docker build -t redmine-mcp-server .
-docker run -d -p 5000:5000 -e REDMINE_API_KEY=your_api_key -e REDMINE_URL=http://localhost:3000 redmine-mcp-server
+
+## Configuration
+
+The server can be configured using:
+
+1. **credentials.yaml**: For sensitive information like API keys
+2. **config.yaml**: For general configuration options
+3. **Environment Variables**: For Docker deployments
+
+### Example credentials.yaml
+
+```yaml
+# Redmine Connection
+redmine_url: 'http://localhost:3000'
+redmine_api_key: 'your_redmine_api_key_here'
+
+# Project Configuration
+project_id: 1
 ```
 
-### Configuring Claude Desktop
+### Available Configuration Options
 
-Add the following to your Claude Desktop MCP configuration:
-
-```json
-{
-  "mcps": {
-    "redmine": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "REDMINE_API_KEY",
-        "-e",
-        "REDMINE_URL",
-        "redmine-mcp-server:latest"
-      ],
-      "environment": {
-        "REDMINE_API_KEY": "your_redmine_api_key",
-        "REDMINE_URL": "http://localhost:3000"
-      }
-    }
-  }
-}
-```
+| Option | Environment Variable | Description | Default |
+|--------|----------------------|-------------|---------|
+| redmine_url | REDMINE_URL | URL of the Redmine instance | http://localhost:3000 |
+| redmine_api_key | REDMINE_API_KEY | API key for Redmine authentication | None |
+| server_port | SERVER_PORT | Port for the MCP server | 5050 |
+| log_level | LOG_LEVEL | Logging level (INFO, DEBUG, etc.) | INFO |
+| project_id | PROJECT_ID | Default Redmine project ID | 1 |
+| default_category_id | DEFAULT_CATEGORY_ID | Default category ID for issues | 3 |
+| default_tracker_id | DEFAULT_TRACKER_ID | Default tracker ID for issues | 2 |
 
 ## API Reference
 
@@ -130,19 +126,32 @@ Add the following to your Claude Desktop MCP configuration:
 - `GET /mcp/prompts/issue_template`: Returns template for creating issues
 - `GET /mcp/prompts/wiki_template`: Returns template for creating wiki pages
 
-## Configuration Options
+## Configuring Claude Desktop
 
-The server can be configured using a `config.yaml` file or environment variables:
+Add the following to your Claude Desktop MCP configuration:
 
-| Option | Environment Variable | Description | Default |
-|--------|----------------------|-------------|---------|
-| redmine_url | REDMINE_URL | URL of the Redmine instance | http://localhost:3000 |
-| redmine_api_key | REDMINE_API_KEY | API key for Redmine authentication | None |
-| server_port | SERVER_PORT | Port for the MCP server | 5000 |
-| log_level | LOG_LEVEL | Logging level (INFO, DEBUG, etc.) | INFO |
-| project_id | PROJECT_ID | Default Redmine project ID | 1 |
-| default_category_id | DEFAULT_CATEGORY_ID | Default category ID for issues | 3 |
-| default_tracker_id | DEFAULT_TRACKER_ID | Default tracker ID for issues | 2 |
+```json
+{
+  "mcps": {
+    "redmine": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "/path/to/credentials.yaml:/app/credentials.yaml",
+        "-e",
+        "CREDENTIALS_PATH=credentials.yaml",
+        "-e",
+        "SERVER_PORT=5050",
+        "redmine-mcp-server:latest"
+      ],
+      "environment": {}
+    }
+  }
+}
+```
 
 ## Process Benefits
 

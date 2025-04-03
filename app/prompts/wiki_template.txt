@@ -1,0 +1,24 @@
+h1. {{title}}
+
+{{#each section_headings}}
+h2. {{this}}
+
+*Add content for {{this}} section here*
+
+{{/each}}
+
+h2. References
+
+* 
+* 
+* 
+
+h2. Related Issues
+
+* 
+* 
+* 
+
+----
+
+Last updated: {{date}}

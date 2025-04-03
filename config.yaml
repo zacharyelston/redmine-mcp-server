@@ -1,0 +1,14 @@
+# Redmine MCP Server Configuration
+
+# Redmine Connection
+redmine_url: 'http://localhost:3000'
+redmine_api_key: 'd775369e8258a39cb774c23af78de43e10452b1c'
+
+# Server Configuration
+server_port: 5050
+log_level: 'INFO'
+
+# Project Configuration
+project_id: 1  # RedmineMCP project
+default_category_id: 3  # 'insight' category
+default_tracker_id: 2  # 'Feature' tracker
