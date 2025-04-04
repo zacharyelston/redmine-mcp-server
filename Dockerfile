@@ -12,6 +12,9 @@ COPY . .
 # Create log directory
 RUN mkdir -p /app/logs
 
+# Create MCP standard mode script and make it executable
+RUN chmod +x /app/run_mcp.sh
+
 # Expose the port the server runs on
 EXPOSE 5050
 

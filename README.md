@@ -41,7 +41,7 @@ By using this MCP server, you can ensure that AI work remains focused, well-docu
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/redmine-mcp-server.git
+   git clone https://github.com/zacharyelston/redmine-mcp-server.git
    cd redmine-mcp-server
    ```
 

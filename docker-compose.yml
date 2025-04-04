@@ -1,6 +1,7 @@
 version: '3'
 
 services:
+  # HTTP API mode (traditional)
   redmine-mcp-server:
     build:
       context: .
@@ -14,3 +15,27 @@ services:
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
+    networks:
+      - redmine-network
+    command: ["gunicorn", "--bind", "0.0.0.0:5050", "main:app", "--workers", "4", "--timeout", "120"]
+
+  # MCP standard mode (for Claude)
+  redmine-mcp-claude:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - credentials.yaml
+    environment:
+      - REDMINE_URL=http://redmine-app:3000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - redmine-network
+    command: ["./run_mcp.sh"]
+
+networks:
+  redmine-network:
+    external: true

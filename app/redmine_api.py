@@ -25,6 +25,9 @@ class RedmineAPI:
         self.base_url = url or os.environ.get('REDMINE_URL', 'http://localhost:3000')
         self.api_key = api_key or os.environ.get('REDMINE_API_KEY')
         
+        # Set mock mode
+        self.mock_mode = os.environ.get('REDMINE_MOCK_MODE', '').lower() == 'true'
+        
         # Ensure URL ends with a trailing slash
         if not self.base_url.endswith('/'):
             self.base_url = self.base_url + '/'
@@ -41,9 +44,9 @@ class RedmineAPI:
             self.headers["X-Redmine-API-Key"] = self.api_key
             logger.debug(f"Redmine API client initialized with URL: {self.base_url}")
     
-    def _make_request(self, method, endpoint, data=None, params=None, files=None):
+    def _make_request(self, method, endpoint, data=None, params=None, files=None, timeout=10, retries=3):
         """
-        Make a request to the Redmine API
+        Make a request to the Redmine API with retry logic
         
         Args:
             method (str): HTTP method (GET, POST, PUT, DELETE)
@@ -51,42 +54,85 @@ class RedmineAPI:
             data (dict, optional): Data to send in the request body
             params (dict, optional): Query parameters
             files (dict, optional): Files to upload
+            timeout (int, optional): Request timeout in seconds
+            retries (int, optional): Number of retry attempts
             
         Returns:
             dict: The response data
         """
         url = urljoin(self.base_url, endpoint)
+        logger.info(f"Making {method} request to {url}")
         
-        try:
-            if method == 'GET':
-                response = requests.get(url, headers=self.headers, params=params)
-            elif method == 'POST':
-                if files:
-                    # For file uploads, don't send JSON
-                    headers_without_content_type = {k: v for k, v in self.headers.items() if k != 'Content-Type'}
-                    response = requests.post(url, headers=headers_without_content_type, data=data, files=files)
-                else:
-                    response = requests.post(url, headers=self.headers, json=data)
-            elif method == 'PUT':
-                response = requests.put(url, headers=self.headers, json=data)
-            elif method == 'DELETE':
-                response = requests.delete(url, headers=self.headers)
+        # Add mock mode for testing without actual Redmine server
+        if self.mock_mode:
+            logger.info("Running in mock mode - returning dummy response")
+            if endpoint.startswith('projects/'):
+                return {"project": {"id": 1, "name": "Mock Project", "identifier": "mock"}}
+            elif endpoint == 'issues.json':
+                return {"issues": [{"id": 1, "subject": "Mock Issue"}]}
             else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
-            
-            if response.status_code >= 400:
-                logger.error(f"Redmine API error: {response.status_code} - {response.text}")
-                raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
-            
-            # For successful requests with no content
-            if response.status_code == 204 or not response.text.strip():
-                return {"success": True, "message": "Operation completed successfully"}
-            
-            return response.json()
+                return {"success": True, "message": "Mock operation completed successfully"}
+
+        # Implement retry logic
+        attempt = 0
+        last_error = None
         
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error making request to Redmine API: {str(e)}")
-            raise Exception(f"Failed to communicate with Redmine API: {str(e)}")
+        while attempt < retries:
+            try:
+                logger.debug(f"Request attempt {attempt+1} of {retries} to {url}")
+                if method == 'GET':
+                    response = requests.get(url, headers=self.headers, params=params, timeout=timeout)
+                elif method == 'POST':
+                    if files:
+                        # For file uploads, don't send JSON
+                        headers_without_content_type = {k: v for k, v in self.headers.items() if k != 'Content-Type'}
+                        response = requests.post(url, headers=headers_without_content_type, data=data, files=files, timeout=timeout)
+                    else:
+                        response = requests.post(url, headers=self.headers, json=data, timeout=timeout)
+                elif method == 'PUT':
+                    response = requests.put(url, headers=self.headers, json=data, timeout=timeout)
+                elif method == 'DELETE':
+                    response = requests.delete(url, headers=self.headers, timeout=timeout)
+                else:
+                    raise ValueError(f"Unsupported HTTP method: {method}")
+                
+                if response.status_code >= 400:
+                    logger.warning(f"Redmine API error: {response.status_code} - {response.text}")
+                    if response.status_code >= 500:  # Server errors, worth retrying
+                        raise requests.exceptions.RequestException(f"Server error: {response.status_code}")
+                    else:  # Client errors, not worth retrying
+                        return {"error": True, "status_code": response.status_code, "message": response.text}
+                
+                # For successful requests with no content
+                if response.status_code == 204 or not response.text.strip():
+                    return {"success": True, "message": "Operation completed successfully"}
+                
+                try:
+                    return response.json()
+                except ValueError:
+                    # Not valid JSON, return text
+                    return {"success": True, "content": response.text}
+            
+            except (requests.exceptions.RequestException, ValueError) as e:
+                last_error = str(e)
+                logger.warning(f"Request attempt {attempt+1} failed: {last_error}")
+                attempt += 1
+                if attempt < retries:
+                    # Exponential backoff: 1s, 2s, 4s, etc.
+                    wait_time = 2 ** (attempt - 1) 
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+        
+        # If we got here, all retries failed
+        logger.error(f"All {retries} request attempts failed for {url}: {last_error}")
+        
+        # Return a graceful error response instead of raising an exception
+        # This allows the MCP server to continue running even if Redmine is unavailable
+        return {
+            "error": True,
+            "message": f"Failed to communicate with Redmine API after {retries} attempts: {last_error}",
+            "mock_data": {"id": 0, "name": "Connection Error", "description": "Could not connect to Redmine server"}
+        }
     
     def get_issues(self, project_id=None, status_id=None, tracker_id=None, category_id=None, limit=25, offset=0):
         """
